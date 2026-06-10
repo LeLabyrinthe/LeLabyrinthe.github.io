@@ -1,466 +1,398 @@
-import React, { useState, useEffect } from "react";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sportlink</title>
+<style>
+  :root{
+    --ink:#0d1b14; --lime:#c2ff3d; --field:#10241a;
+    --text:#eafbe6; --muted:#9fc4a8; --soft:#bcd6c2;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh;
+    background:radial-gradient(120% 80% at 50% -10%, #16331f 0%, #0a160f 55%, #060c08 100%);
+    color:var(--text); font-family:'Inter',system-ui,-apple-system,sans-serif;
+    padding-bottom:60px;
+  }
+  @keyframes slFade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  @keyframes slPop{from{opacity:0;transform:scale(.94);}to{opacity:1;transform:none;}}
 
-// ---- Sports catalog ----
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 20px; position:sticky; top:0; gap:12px; z-index:20;
+    background:rgba(8,18,12,.82); backdrop-filter:blur(10px);
+    border-bottom:1px solid rgba(194,255,61,.12);
+  }
+  .brand{font-size:22px; font-weight:800; letter-spacing:-.03em; cursor:pointer;
+    display:flex; align-items:center; gap:8px; white-space:nowrap;}
+  .brand .mark{color:var(--lime); font-size:16px;}
+  .brand .lime{color:var(--lime);}
+  #nameInput{
+    background:var(--field); border:1px solid rgba(194,255,61,.25); color:var(--text);
+    padding:9px 14px; border-radius:999px; font-size:14px; width:150px; max-width:40vw;
+    font-family:inherit;
+  }
+  main{max-width:760px; margin:0 auto; padding:10px 20px 40px;}
+
+  .hero{padding:42px 0 26px; text-align:center;}
+  .hero h1{font-size:clamp(32px,6vw,56px); line-height:1.03; font-weight:800; letter-spacing:-.04em;
+    margin:0; background:linear-gradient(180deg,#f4ffe9,#a9d98e);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;}
+  .hero p{color:var(--muted); max-width:520px; margin:18px auto 0; font-size:16px; line-height:1.5;}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:13px;}
+  .card{display:flex; flex-direction:column; align-items:flex-start; gap:8px;
+    padding:20px 18px; border-radius:18px; cursor:pointer; color:var(--text); text-align:left;
+    background:linear-gradient(160deg,rgba(255,255,255,.04),rgba(255,255,255,.01));
+    border:1px solid rgba(194,255,61,.14); animation:slFade .4s both;
+    transition:transform .15s,border-color .15s,background .15s;}
+  .card:hover{transform:translateY(-3px); border-color:rgba(194,255,61,.5);
+    background:rgba(194,255,61,.06);}
+  .card .emoji{font-size:34px;}
+  .card .name{font-size:16px; font-weight:700;}
+
+  button{font-family:inherit;}
+  button:active{transform:scale(.97);}
+  .back{background:none; border:none; color:var(--lime); cursor:pointer; font-size:14px;
+    padding:8px 0; margin-top:6px;}
+
+  .sportHead{display:flex; align-items:center; gap:16px; margin:6px 0 18px;}
+  .sportHead .emoji{font-size:46px;}
+  .sportHead h2{margin:0; font-size:28px; font-weight:800; letter-spacing:-.03em;}
+  .sportHead .count{margin:4px 0 0; color:var(--muted); font-size:14px;}
+  .refresh{background:var(--field); border:1px solid rgba(194,255,61,.2); color:var(--text);
+    width:40px; height:40px; border-radius:12px; cursor:pointer; font-size:18px; flex-shrink:0;}
+
+  .postBtn{background:var(--lime); color:var(--ink); border:none; padding:14px 20px;
+    border-radius:14px; font-weight:800; cursor:pointer; font-size:15px; margin-bottom:20px; width:100%;}
+
+  .loadingRow{color:var(--muted); padding:20px; text-align:center;}
+  .empty{text-align:center; padding:40px 20px; border-radius:18px;
+    background:rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.05);}
+  .empty .emoji{font-size:54px; opacity:.5;}
+  .empty p{color:var(--muted); max-width:360px; margin:12px auto 0; line-height:1.5;}
+
+  .matchList{display:flex; flex-direction:column; gap:14px;}
+  .matchCard{padding:18px; border-radius:18px; animation:slFade .3s both;
+    background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
+    border:1px solid rgba(194,255,61,.14);}
+  .matchCard.past{opacity:.55;}
+  .matchTop{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .whenChip{background:rgba(194,255,61,.16); color:var(--lime); padding:4px 12px;
+    border-radius:999px; font-size:12px; font-weight:700;}
+  .deleteLink{background:none; border:none; color:#e88; font-size:12px; cursor:pointer; text-decoration:underline;}
+  .matchPlace{font-size:19px; font-weight:800; letter-spacing:-.02em;}
+  .matchWhen{color:var(--soft); font-size:14px; margin-top:5px;}
+  .matchNote{color:var(--muted); font-size:14px; margin-top:8px; font-style:italic;}
+  .hostBadge{font-size:12px; color:#7fa389; display:block; margin-top:10px;}
+  .playersRow{display:flex; align-items:center; gap:12px; margin:14px 0;}
+  .avatarStack{display:flex;}
+  .miniAvatar{width:30px; height:30px; border-radius:9px; background:var(--lime); color:var(--ink);
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px;
+    border:2px solid #0d1b14;}
+  .playerCount{font-size:13px; color:var(--soft); font-weight:600;}
+  .joinBtn{width:100%; background:var(--lime); color:var(--ink); border:none; padding:13px;
+    border-radius:12px; font-weight:800; cursor:pointer; font-size:15px;}
+  .joinBtn.joined{background:transparent; color:var(--lime); border:1px solid rgba(194,255,61,.5);}
+  .joinBtn.full{background:var(--field); color:#7fa389; cursor:not-allowed;}
+  .goingNames{font-size:12px; color:#7fa389; margin-top:10px; line-height:1.4;}
+
+  label.fld{display:block; font-size:13px; font-weight:600; color:var(--soft); margin:16px 0 7px;}
+  input.fld{width:100%; background:var(--field); border:1px solid rgba(194,255,61,.18); color:var(--text);
+    padding:13px 14px; border-radius:12px; font-size:15px; font-family:inherit;}
+  input.fld:focus, #nameInput:focus{outline:none; border-color:var(--lime);}
+  .hostNote{background:rgba(194,255,61,.08); border:1px solid rgba(194,255,61,.2); color:var(--soft);
+    padding:12px; border-radius:12px; font-size:13px; margin:18px 0 4px;}
+
+  .toast{position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:#0e2016; border:1px solid rgba(194,255,61,.3); color:var(--text);
+    padding:12px 20px; border-radius:12px; font-size:14px; z-index:60; animation:slPop .2s both;
+    max-width:90vw; text-align:center;}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand" id="brand"><span class="mark">◆</span><span>Sport<span class="lime">link</span></span></div>
+    <input id="nameInput" placeholder="Your name">
+  </header>
+
+  <main id="app"></main>
+  <div id="toast" class="toast hidden"></div>
+
+<script>
+"use strict";
+
+/* ---- Sports ---- */
 const SPORTS = [
-  { id: "basketball", name: "Basketball", emoji: "🏀" },
-  { id: "soccer", name: "Soccer", emoji: "⚽" },
-  { id: "badminton", name: "Badminton", emoji: "🏸" },
-  { id: "tennis", name: "Tennis", emoji: "🎾" },
-  { id: "volleyball", name: "Volleyball", emoji: "🏐" },
-  { id: "tabletennis", name: "Table tennis", emoji: "🏓" },
-  { id: "running", name: "Running", emoji: "🏃" },
-  { id: "cycling", name: "Cycling", emoji: "🚴" },
-  { id: "swimming", name: "Swimming", emoji: "🏊" },
-  { id: "cricket", name: "Cricket", emoji: "🏏" },
-  { id: "baseball", name: "Baseball", emoji: "⚾" },
-  { id: "golf", name: "Golf", emoji: "⛳" },
-  { id: "boxing", name: "Boxing", emoji: "🥊" },
-  { id: "skating", name: "Skating", emoji: "⛸️" },
-  { id: "climbing", name: "Climbing", emoji: "🧗" },
-  { id: "hockey", name: "Hockey", emoji: "🏒" },
+  {id:"basketball",name:"Basketball",emoji:"🏀"},
+  {id:"soccer",name:"Soccer",emoji:"⚽"},
+  {id:"badminton",name:"Badminton",emoji:"🏸"},
+  {id:"tennis",name:"Tennis",emoji:"🎾"},
+  {id:"volleyball",name:"Volleyball",emoji:"🏐"},
+  {id:"tabletennis",name:"Table tennis",emoji:"🏓"},
+  {id:"running",name:"Running",emoji:"🏃"},
+  {id:"cycling",name:"Cycling",emoji:"🚴"},
+  {id:"swimming",name:"Swimming",emoji:"🏊"},
+  {id:"cricket",name:"Cricket",emoji:"🏏"},
+  {id:"baseball",name:"Baseball",emoji:"⚾"},
+  {id:"golf",name:"Golf",emoji:"⛳"},
+  {id:"boxing",name:"Boxing",emoji:"🥊"},
+  {id:"skating",name:"Skating",emoji:"⛸️"},
+  {id:"climbing",name:"Climbing",emoji:"🧗"},
+  {id:"hockey",name:"Hockey",emoji:"🏒"},
 ];
 
-function getDeviceId() {
-  let id = window.__sportlinkDeviceId;
-  if (!id) {
-    id = "u_" + Math.random().toString(36).slice(2, 10);
-    window.__sportlinkDeviceId = id;
+/* ---- Storage: server if available, else localStorage fallback ---- */
+const hasServer = typeof window.storage !== "undefined" && window.storage;
+const store = {
+  async list(prefix){
+    if(hasServer){ try{ const r=await window.storage.list(prefix,true); return (r&&r.keys)||[]; }catch(e){ return []; } }
+    return Object.keys(localStorage).filter(k=>k.startsWith(prefix));
+  },
+  async get(key){
+    if(hasServer){ try{ const r=await window.storage.get(key,true); return r&&r.value; }catch(e){ return null; } }
+    return localStorage.getItem(key);
+  },
+  async set(key,val){
+    if(hasServer){ try{ await window.storage.set(key,val,true); return true; }catch(e){ return false; } }
+    localStorage.setItem(key,val); return true;
+  },
+  async del(key){
+    if(hasServer){ try{ await window.storage.delete(key,true); return true; }catch(e){ return false; } }
+    localStorage.removeItem(key); return true;
+  },
+  // personal (name) — keep per device
+  async getLocal(key){
+    if(hasServer){ try{ const r=await window.storage.get(key,false); return r&&r.value; }catch(e){ return null; } }
+    return localStorage.getItem(key);
+  },
+  async setLocal(key,val){
+    if(hasServer){ try{ await window.storage.set(key,val,false); }catch(e){} }
+    else localStorage.setItem(key,val);
   }
-  return id;
-}
-
-function timeUntil(dateStr) {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  const diff = d - new Date();
-  if (diff < 0) return "Already started";
-  const h = Math.floor(diff / 3600000);
-  const days = Math.floor(h / 24);
-  if (days >= 1) return `In ${days} day${days > 1 ? "s" : ""}`;
-  if (h >= 1) return `In ${h} hr${h > 1 ? "s" : ""}`;
-  const m = Math.max(1, Math.floor(diff / 60000));
-  return `In ${m} min`;
-}
-
-function prettyDate(dateStr) {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  return d.toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-export default function Sportlink() {
-  const [view, setView] = useState("home");
-  const [activeSport, setActiveSport] = useState(null);
-  const [matches, setMatches] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState("");
-  const [name, setName] = useState("");
-  const deviceId = getDeviceId();
-
-  function flash(msg) {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2400);
-  }
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await window.storage.get(`name:${deviceId}`, false);
-        if (r && r.value) setName(r.value);
-      } catch (e) {}
-    })();
-  }, []);
-
-  async function rememberName(n) {
-    setName(n);
-    try { await window.storage.set(`name:${deviceId}`, n, false); } catch (e) {}
-  }
-
-  async function loadMatchesFor(sportId) {
-    setLoading(true);
-    setMatches([]);
-    try {
-      const list = await window.storage.list("match:", true);
-      const keys = (list && list.keys) || [];
-      const results = [];
-      for (const k of keys) {
-        try {
-          const r = await window.storage.get(k, true);
-          if (r && r.value) {
-            const m = JSON.parse(r.value);
-            if (m.sport === sportId) results.push(m);
-          }
-        } catch (e) {}
-      }
-      results.sort((a, b) => new Date(a.when) - new Date(b.when));
-      setMatches(results);
-    } catch (e) {
-      flash("Couldn't load matches. Try again.");
-    }
-    setLoading(false);
-  }
-
-  function openSport(sport) {
-    setActiveSport(sport);
-    setView("sport");
-    loadMatchesFor(sport.id);
-  }
-
-  async function postMatch(data) {
-    const id = "match:" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
-    const match = {
-      id,
-      sport: activeSport.id,
-      host: data.host,
-      hostId: deviceId,
-      place: data.place,
-      when: data.when,
-      note: data.note,
-      maxPlayers: data.maxPlayers,
-      players: [{ id: deviceId, name: data.host }],
-      created: Date.now(),
-    };
-    try {
-      await window.storage.set(id, JSON.stringify(match), true);
-      flash("Match posted — others can see it now");
-      loadMatchesFor(activeSport.id);
-      setView("sport");
-    } catch (e) {
-      flash("Couldn't post. Try again.");
-    }
-  }
-
-  async function joinMatch(match) {
-    if (!name.trim()) { flash("Add your name in the top bar first"); return; }
-    const already = match.players.some((p) => p.id === deviceId);
-    let updated;
-    if (already) {
-      updated = { ...match, players: match.players.filter((p) => p.id !== deviceId) };
-    } else {
-      if (match.maxPlayers && match.players.length >= match.maxPlayers) {
-        flash("This match is full");
-        return;
-      }
-      updated = { ...match, players: [...match.players, { id: deviceId, name: name.trim() }] };
-    }
-    try {
-      await window.storage.set(match.id, JSON.stringify(updated), true);
-      flash(already ? "You left the match" : "You're in! See you there");
-      loadMatchesFor(activeSport.id);
-    } catch (e) {
-      flash("Couldn't update. Try again.");
-    }
-  }
-
-  async function deleteMatch(match) {
-    try {
-      await window.storage.delete(match.id, true);
-      flash("Match removed");
-      loadMatchesFor(activeSport.id);
-    } catch (e) {
-      flash("Couldn't remove. Try again.");
-    }
-  }
-
-  return (
-    <div style={S.app}>
-      <style>{CSS}</style>
-
-      <header style={S.header}>
-        <div style={S.brand} onClick={() => setView("home")}>
-          <span style={S.brandMark}>◆</span>
-          <span>Sport<span style={{ color: LIME }}>link</span></span>
-        </div>
-        <div style={S.nameWrap}>
-          <input
-            style={S.nameInput}
-            value={name}
-            onChange={(e) => rememberName(e.target.value)}
-            placeholder="Your name"
-          />
-        </div>
-      </header>
-
-      {view === "home" && <Home onPick={openSport} />}
-
-      {view === "sport" && activeSport && (
-        <SportView
-          sport={activeSport}
-          matches={matches}
-          loading={loading}
-          deviceId={deviceId}
-          onBack={() => setView("home")}
-          onCreate={() => {
-            if (!name.trim()) { flash("Add your name in the top bar first"); return; }
-            setView("create");
-          }}
-          onJoin={joinMatch}
-          onDelete={deleteMatch}
-          refresh={() => loadMatchesFor(activeSport.id)}
-        />
-      )}
-
-      {view === "create" && activeSport && (
-        <CreateMatch
-          sport={activeSport}
-          hostName={name}
-          onPost={postMatch}
-          onCancel={() => setView("sport")}
-        />
-      )}
-
-      {toast && <div style={S.toast}>{toast}</div>}
-    </div>
-  );
-}
-
-function Home({ onPick }) {
-  return (
-    <main style={S.main}>
-      <section style={S.hero}>
-        <h1 style={S.heroTitle}>Pick a sport.<br />Find a match to join.</h1>
-        <p style={S.heroSub}>
-          Choose a sport, see the matches people have posted near you — place and
-          time included — and join with one tap. Or post your own and watch others
-          join.
-        </p>
-      </section>
-
-      <div style={S.grid}>
-        {SPORTS.map((sp, i) => (
-          <button
-            key={sp.id}
-            style={{ ...S.card, animationDelay: `${i * 25}ms` }}
-            className="sl-card"
-            onClick={() => onPick(sp)}
-          >
-            <span style={S.cardEmoji}>{sp.emoji}</span>
-            <span style={S.cardName}>{sp.name}</span>
-          </button>
-        ))}
-      </div>
-    </main>
-  );
-}
-
-function SportView({ sport, matches, loading, deviceId, onBack, onCreate, onJoin, onDelete, refresh }) {
-  return (
-    <main style={S.main}>
-      <button style={S.back} onClick={onBack}>← All sports</button>
-
-      <div style={S.sportHead}>
-        <span style={S.sportHeadEmoji}>{sport.emoji}</span>
-        <div style={{ flex: 1 }}>
-          <h2 style={S.sportTitle}>{sport.name}</h2>
-          <p style={S.sportCount}>
-            {loading ? "Loading matches…" :
-              matches.length === 0 ? "No matches posted yet" :
-              `${matches.length} match${matches.length > 1 ? "es" : ""} posted`}
-          </p>
-        </div>
-        <button style={S.refresh} onClick={refresh} title="Refresh">↻</button>
-      </div>
-
-      <button style={S.postBtn} onClick={onCreate}>+ Post a match</button>
-
-      {loading && <div style={S.loadingRow}>Loading…</div>}
-
-      {!loading && matches.length === 0 && (
-        <div style={S.empty}>
-          <div style={S.emptyEmoji}>{sport.emoji}</div>
-          <p style={S.emptyText}>
-            No {sport.name.toLowerCase()} matches yet. Post one — set the place and
-            time, and others can join right away.
-          </p>
-        </div>
-      )}
-
-      <div style={S.matchList}>
-        {matches.map((m) => {
-          const joined = m.players.some((p) => p.id === deviceId);
-          const isHost = m.hostId === deviceId;
-          const full = m.maxPlayers && m.players.length >= m.maxPlayers;
-          const past = new Date(m.when) < new Date();
-          return (
-            <div key={m.id} style={{ ...S.matchCard, ...(past ? S.matchPast : {}) }}>
-              <div style={S.matchTop}>
-                <span style={S.whenChip}>{past ? "Past" : timeUntil(m.when)}</span>
-                {isHost && (
-                  <button style={S.deleteLink} onClick={() => onDelete(m)}>Delete</button>
-                )}
-              </div>
-
-              <div style={S.matchPlace}>📍 {m.place}</div>
-              <div style={S.matchWhen}>🗓 {prettyDate(m.when)}</div>
-              {m.note && <div style={S.matchNote}>{m.note}</div>}
-
-              <div style={S.matchHostRow}>
-                <span style={S.hostBadge}>Hosted by {m.host}</span>
-              </div>
-
-              <div style={S.playersRow}>
-                <div style={S.avatarStack}>
-                  {m.players.slice(0, 5).map((p, i) => (
-                    <span key={p.id + i} style={{ ...S.miniAvatar, marginLeft: i === 0 ? 0 : -8, zIndex: 10 - i }} title={p.name}>
-                      {(p.name || "?").charAt(0).toUpperCase()}
-                    </span>
-                  ))}
-                </div>
-                <span style={S.playerCount}>
-                  {m.players.length}{m.maxPlayers ? ` / ${m.maxPlayers}` : ""} going
-                </span>
-              </div>
-
-              <button
-                style={{
-                  ...S.joinBtn,
-                  ...(joined ? S.joinedBtn : {}),
-                  ...(!joined && full ? S.fullBtn : {}),
-                }}
-                onClick={() => onJoin(m)}
-                disabled={!joined && full}
-              >
-                {joined ? "✓ You're going — tap to leave" : full ? "Match full" : "Join this match"}
-              </button>
-
-              {m.players.length > 0 && (
-                <div style={S.goingNames}>
-                  {m.players.map((p) => p.name).join(", ")}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </main>
-  );
-}
-
-function CreateMatch({ sport, hostName, onPost, onCancel }) {
-  const [place, setPlace] = useState("");
-  const [when, setWhen] = useState("");
-  const [note, setNote] = useState("");
-  const [maxPlayers, setMaxPlayers] = useState("");
-
-  const valid = place.trim() && when;
-
-  function submit() {
-    if (!valid) return;
-    onPost({
-      host: hostName.trim() || "Someone",
-      place: place.trim(),
-      when,
-      note: note.trim(),
-      maxPlayers: maxPlayers ? parseInt(maxPlayers, 10) : null,
-    });
-  }
-
-  return (
-    <main style={S.main}>
-      <button style={S.back} onClick={onCancel}>← Back</button>
-      <div style={S.sportHead}>
-        <span style={S.sportHeadEmoji}>{sport.emoji}</span>
-        <div>
-          <h2 style={S.sportTitle}>Post a {sport.name} match</h2>
-          <p style={S.sportCount}>Set where and when — others join in one tap.</p>
-        </div>
-      </div>
-
-      <label style={S.label}>Where? *</label>
-      <input style={S.input} value={place} onChange={(e) => setPlace(e.target.value)} placeholder="e.g. School court, Senayan Park" />
-
-      <label style={S.label}>When? *</label>
-      <input style={S.input} type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
-
-      <label style={S.label}>Players needed (optional)</label>
-      <input style={S.input} type="number" min="2" value={maxPlayers} onChange={(e) => setMaxPlayers(e.target.value)} placeholder="e.g. 10" />
-
-      <label style={S.label}>Note (optional)</label>
-      <input style={S.input} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Bring your own ball, casual game" />
-
-      <div style={S.hostNote}>Posting as <b>{hostName || "Someone"}</b>. You'll be counted as going automatically.</div>
-
-      <button
-        style={{ ...S.postBtn, width: "100%", opacity: valid ? 1 : 0.5, cursor: valid ? "pointer" : "not-allowed", marginTop: 6 }}
-        onClick={submit}
-        disabled={!valid}
-      >
-        Post match
-      </button>
-    </main>
-  );
-}
-
-const INK = "#0d1b14";
-const LIME = "#c2ff3d";
-const FIELD = "#10241a";
-
-const S = {
-  app: { minHeight: "100vh", background: "radial-gradient(120% 80% at 50% -10%, #16331f 0%, #0a160f 55%, #060c08 100%)", color: "#eafbe6", fontFamily: "'Inter', system-ui, sans-serif", paddingBottom: 60 },
-  header: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", position: "sticky", top: 0, background: "rgba(8,18,12,0.82)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(194,255,61,0.12)", zIndex: 20, gap: 12 },
-  brand: { fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" },
-  brandMark: { color: LIME, fontSize: 16 },
-  nameWrap: { flexShrink: 1, minWidth: 0 },
-  nameInput: { background: FIELD, border: "1px solid rgba(194,255,61,0.25)", color: "#eafbe6", padding: "9px 14px", borderRadius: 999, fontSize: 14, width: 150, maxWidth: "40vw", fontFamily: "inherit" },
-
-  main: { maxWidth: 760, margin: "0 auto", padding: "10px 20px 40px" },
-
-  hero: { padding: "42px 0 26px", textAlign: "center" },
-  heroTitle: { fontSize: "clamp(32px, 6vw, 56px)", lineHeight: 1.03, fontWeight: 800, letterSpacing: "-0.04em", margin: 0, background: "linear-gradient(180deg,#f4ffe9,#a9d98e)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" },
-  heroSub: { color: "#9fc4a8", maxWidth: 520, margin: "18px auto 0", fontSize: 16, lineHeight: 1.5 },
-
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px,1fr))", gap: 13 },
-  card: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, padding: "20px 18px", background: "linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))", border: "1px solid rgba(194,255,61,0.14)", borderRadius: 18, cursor: "pointer", color: "#eafbe6", textAlign: "left", animation: "slFade .4s both" },
-  cardEmoji: { fontSize: 34 },
-  cardName: { fontSize: 16, fontWeight: 700 },
-
-  back: { background: "none", border: "none", color: LIME, cursor: "pointer", fontSize: 14, padding: "8px 0", marginTop: 6 },
-
-  sportHead: { display: "flex", alignItems: "center", gap: 16, marginTop: 6, marginBottom: 18 },
-  sportHeadEmoji: { fontSize: 46 },
-  sportTitle: { margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-0.03em" },
-  sportCount: { margin: "4px 0 0", color: "#9fc4a8", fontSize: 14 },
-  refresh: { background: FIELD, border: "1px solid rgba(194,255,61,0.2)", color: "#eafbe6", width: 40, height: 40, borderRadius: 12, cursor: "pointer", fontSize: 18, flexShrink: 0 },
-
-  postBtn: { background: LIME, color: INK, border: "none", padding: "14px 20px", borderRadius: 14, fontWeight: 800, cursor: "pointer", fontSize: 15, marginBottom: 20, width: "100%" },
-
-  loadingRow: { color: "#9fc4a8", padding: 20, textAlign: "center" },
-  empty: { textAlign: "center", padding: "40px 20px", background: "rgba(255,255,255,0.02)", borderRadius: 18, border: "1px solid rgba(255,255,255,0.05)" },
-  emptyEmoji: { fontSize: 54, opacity: 0.5 },
-  emptyText: { color: "#9fc4a8", maxWidth: 360, margin: "12px auto 0", lineHeight: 1.5 },
-
-  matchList: { display: "flex", flexDirection: "column", gap: 14 },
-  matchCard: { padding: 18, background: "linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015))", border: "1px solid rgba(194,255,61,0.14)", borderRadius: 18, animation: "slFade .3s both" },
-  matchPast: { opacity: 0.55 },
-  matchTop: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
-  whenChip: { background: "rgba(194,255,61,0.16)", color: LIME, padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700 },
-  deleteLink: { background: "none", border: "none", color: "#e88", fontSize: 12, cursor: "pointer", textDecoration: "underline" },
-  matchPlace: { fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em" },
-  matchWhen: { color: "#bcd6c2", fontSize: 14, marginTop: 5 },
-  matchNote: { color: "#9fc4a8", fontSize: 14, marginTop: 8, fontStyle: "italic" },
-  matchHostRow: { marginTop: 10 },
-  hostBadge: { fontSize: 12, color: "#7fa389" },
-  playersRow: { display: "flex", alignItems: "center", gap: 12, margin: "14px 0" },
-  avatarStack: { display: "flex" },
-  miniAvatar: { width: 30, height: 30, borderRadius: 9, background: LIME, color: INK, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, border: "2px solid #0d1b14", position: "relative" },
-  playerCount: { fontSize: 13, color: "#bcd6c2", fontWeight: 600 },
-  joinBtn: { width: "100%", background: LIME, color: INK, border: "none", padding: "13px", borderRadius: 12, fontWeight: 800, cursor: "pointer", fontSize: 15 },
-  joinedBtn: { background: "transparent", color: LIME, border: "1px solid rgba(194,255,61,0.5)" },
-  fullBtn: { background: FIELD, color: "#7fa389", cursor: "not-allowed" },
-  goingNames: { fontSize: 12, color: "#7fa389", marginTop: 10, lineHeight: 1.4 },
-
-  label: { display: "block", fontSize: 13, fontWeight: 600, color: "#bcd6c2", margin: "16px 0 7px" },
-  input: { width: "100%", background: FIELD, border: "1px solid rgba(194,255,61,0.18)", color: "#eafbe6", padding: "13px 14px", borderRadius: 12, fontSize: 15, boxSizing: "border-box", fontFamily: "inherit" },
-  hostNote: { background: "rgba(194,255,61,0.08)", border: "1px solid rgba(194,255,61,0.2)", color: "#bcd6c2", padding: 12, borderRadius: 12, fontSize: 13, margin: "18px 0 4px" },
-
-  toast: { position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#0e2016", border: "1px solid rgba(194,255,61,0.3)", color: "#eafbe6", padding: "12px 20px", borderRadius: 12, fontSize: 14, zIndex: 60, animation: "slPop .2s both", maxWidth: "90vw", textAlign: "center" },
 };
 
-const CSS = `
-  @keyframes slFade { from { opacity: 0; transform: translateY(8px);} to { opacity:1; transform:none;} }
-  @keyframes slPop { from { opacity: 0; transform: scale(.94);} to { opacity:1; transform:none;} }
-  .sl-card { transition: transform .15s, border-color .15s, background .15s; }
-  .sl-card:hover { transform: translateY(-3px); border-color: rgba(194,255,61,0.5) !important; background: rgba(194,255,61,0.06) !important; }
-  input:focus { outline: none; border-color: ${LIME} !important; }
-  button:active { transform: scale(.97); }
-`;
+/* ---- Identity ---- */
+function getDeviceId(){
+  let id = localStorage.getItem("sl_device");
+  if(!id){ id="u_"+Math.random().toString(36).slice(2,10); localStorage.setItem("sl_device",id); }
+  return id;
+}
+const deviceId = getDeviceId();
+
+/* ---- App state ---- */
+const state = { view:"home", sport:null, name:"", matches:[], loading:false };
+
+/* ---- Helpers ---- */
+const app = document.getElementById("app");
+const esc = (s)=>String(s==null?"":s).replace(/[&<>"']/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let toastTimer;
+function flash(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.classList.remove("hidden");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.add("hidden"),2400);
+}
+function timeUntil(dateStr){
+  if(!dateStr) return "";
+  const diff=new Date(dateStr)-new Date();
+  if(diff<0) return "Already started";
+  const h=Math.floor(diff/3600000), days=Math.floor(h/24);
+  if(days>=1) return "In "+days+" day"+(days>1?"s":"");
+  if(h>=1) return "In "+h+" hr"+(h>1?"s":"");
+  const m=Math.max(1,Math.floor(diff/60000));
+  return "In "+m+" min";
+}
+function prettyDate(dateStr){
+  if(!dateStr) return "";
+  return new Date(dateStr).toLocaleString([],{weekday:"short",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+}
+
+/* ---- Data ops ---- */
+async function loadMatchesFor(sportId){
+  state.loading=true; state.matches=[]; render();
+  const keys=await store.list("match:");
+  const results=[];
+  for(const k of keys){
+    const v=await store.get(k);
+    if(v){ try{ const m=JSON.parse(v); if(m.sport===sportId) results.push(m); }catch(e){} }
+  }
+  results.sort((a,b)=>new Date(a.when)-new Date(b.when));
+  state.matches=results; state.loading=false; render();
+}
+async function postMatch(data){
+  const id="match:"+Date.now()+"_"+Math.random().toString(36).slice(2,6);
+  const match={ id, sport:state.sport.id, host:data.host, hostId:deviceId,
+    place:data.place, when:data.when, note:data.note, maxPlayers:data.maxPlayers,
+    players:[{id:deviceId,name:data.host}], created:Date.now() };
+  await store.set(id, JSON.stringify(match));
+  flash("Match posted — others can see it now");
+  state.view="sport"; await loadMatchesFor(state.sport.id);
+}
+async function joinMatch(match){
+  if(!state.name.trim()){ flash("Add your name in the top bar first"); return; }
+  const already=match.players.some(p=>p.id===deviceId);
+  let updated;
+  if(already){ updated={...match, players:match.players.filter(p=>p.id!==deviceId)}; }
+  else{
+    if(match.maxPlayers && match.players.length>=match.maxPlayers){ flash("This match is full"); return; }
+    updated={...match, players:[...match.players,{id:deviceId,name:state.name.trim()}]};
+  }
+  await store.set(match.id, JSON.stringify(updated));
+  flash(already?"You left the match":"You're in! See you there");
+  await loadMatchesFor(state.sport.id);
+}
+async function deleteMatch(match){
+  await store.del(match.id);
+  flash("Match removed");
+  await loadMatchesFor(state.sport.id);
+}
+
+/* ---- Views ---- */
+function render(){
+  if(state.view==="home") return renderHome();
+  if(state.view==="sport") return renderSport();
+  if(state.view==="create") return renderCreate();
+}
+
+function renderHome(){
+  app.innerHTML = `
+    <section class="hero">
+      <h1>Pick a sport.<br>Find a match to join.</h1>
+      <p>Choose a sport, see the matches people have posted near you — place and time included — and join with one tap. Or post your own and watch others join.</p>
+    </section>
+    <div class="grid">
+      ${SPORTS.map((sp,i)=>`
+        <button class="card" style="animation-delay:${i*25}ms" data-sport="${sp.id}">
+          <span class="emoji">${sp.emoji}</span>
+          <span class="name">${sp.name}</span>
+        </button>`).join("")}
+    </div>`;
+  app.querySelectorAll("[data-sport]").forEach(b=>b.onclick=()=>{
+    state.sport=SPORTS.find(s=>s.id===b.dataset.sport);
+    state.view="sport"; loadMatchesFor(state.sport.id);
+  });
+}
+
+function renderSport(){
+  const sp=state.sport;
+  const countText = state.loading ? "Loading matches…"
+    : state.matches.length===0 ? "No matches posted yet"
+    : state.matches.length+" match"+(state.matches.length>1?"es":"")+" posted";
+
+  let cards="";
+  if(!state.loading && state.matches.length===0){
+    cards = `<div class="empty"><div class="emoji">${sp.emoji}</div>
+      <p>No ${sp.name.toLowerCase()} matches yet. Post one — set the place and time, and others can join right away.</p></div>`;
+  } else {
+    cards = `<div class="matchList">${state.matches.map(m=>matchCard(m)).join("")}</div>`;
+  }
+
+  app.innerHTML = `
+    <button class="back" id="back">← All sports</button>
+    <div class="sportHead">
+      <span class="emoji">${sp.emoji}</span>
+      <div style="flex:1">
+        <h2>${sp.name}</h2>
+        <p class="count">${countText}</p>
+      </div>
+      <button class="refresh" id="refresh" title="Refresh">↻</button>
+    </div>
+    <button class="postBtn" id="post">+ Post a match</button>
+    ${state.loading?'<div class="loadingRow">Loading…</div>':""}
+    ${cards}`;
+
+  document.getElementById("back").onclick=()=>{state.view="home"; render();};
+  document.getElementById("refresh").onclick=()=>loadMatchesFor(sp.id);
+  document.getElementById("post").onclick=()=>{
+    if(!state.name.trim()){ flash("Add your name in the top bar first"); return; }
+    state.view="create"; render();
+  };
+  app.querySelectorAll("[data-join]").forEach(b=>b.onclick=()=>{
+    const m=state.matches.find(x=>x.id===b.dataset.join); if(m) joinMatch(m);
+  });
+  app.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    const m=state.matches.find(x=>x.id===b.dataset.del); if(m) deleteMatch(m);
+  });
+}
+
+function matchCard(m){
+  const joined=m.players.some(p=>p.id===deviceId);
+  const isHost=m.hostId===deviceId;
+  const full=m.maxPlayers && m.players.length>=m.maxPlayers;
+  const past=new Date(m.when)<new Date();
+  const avatars=m.players.slice(0,5).map((p,i)=>
+    `<span class="miniAvatar" style="margin-left:${i===0?0:-8}px;z-index:${10-i}" title="${esc(p.name)}">${esc((p.name||"?").charAt(0).toUpperCase())}</span>`).join("");
+  const joinClass = joined?"joinBtn joined":(full?"joinBtn full":"joinBtn");
+  const joinLabel = joined?"✓ You're going — tap to leave":(full?"Match full":"Join this match");
+  return `
+    <div class="matchCard ${past?"past":""}">
+      <div class="matchTop">
+        <span class="whenChip">${past?"Past":timeUntil(m.when)}</span>
+        ${isHost?`<button class="deleteLink" data-del="${m.id}">Delete</button>`:""}
+      </div>
+      <div class="matchPlace">📍 ${esc(m.place)}</div>
+      <div class="matchWhen">🗓 ${prettyDate(m.when)}</div>
+      ${m.note?`<div class="matchNote">${esc(m.note)}</div>`:""}
+      <span class="hostBadge">Hosted by ${esc(m.host)}</span>
+      <div class="playersRow">
+        <div class="avatarStack">${avatars}</div>
+        <span class="playerCount">${m.players.length}${m.maxPlayers?" / "+m.maxPlayers:""} going</span>
+      </div>
+      <button class="${joinClass}" data-join="${m.id}" ${(!joined&&full)?"disabled":""}>${joinLabel}</button>
+      ${m.players.length?`<div class="goingNames">${m.players.map(p=>esc(p.name)).join(", ")}</div>`:""}
+    </div>`;
+}
+
+function renderCreate(){
+  const sp=state.sport;
+  app.innerHTML = `
+    <button class="back" id="back">← Back</button>
+    <div class="sportHead">
+      <span class="emoji">${sp.emoji}</span>
+      <div>
+        <h2>Post a ${sp.name} match</h2>
+        <p class="count">Set where and when — others join in one tap.</p>
+      </div>
+    </div>
+    <label class="fld">Where? *</label>
+    <input class="fld" id="place" placeholder="e.g. School court, Senayan Park">
+    <label class="fld">When? *</label>
+    <input class="fld" id="when" type="datetime-local">
+    <label class="fld">Players needed (optional)</label>
+    <input class="fld" id="max" type="number" min="2" placeholder="e.g. 10">
+    <label class="fld">Note (optional)</label>
+    <input class="fld" id="note" placeholder="e.g. Bring your own ball, casual game">
+    <div class="hostNote">Posting as <b>${esc(state.name||"Someone")}</b>. You'll be counted as going automatically.</div>
+    <button class="postBtn" id="submit" style="margin-top:6px">Post match</button>`;
+
+  document.getElementById("back").onclick=()=>{state.view="sport"; render();};
+  document.getElementById("submit").onclick=()=>{
+    const place=document.getElementById("place").value.trim();
+    const when=document.getElementById("when").value;
+    const max=document.getElementById("max").value;
+    const note=document.getElementById("note").value.trim();
+    if(!place||!when){ flash("Add a place and a time"); return; }
+    postMatch({ host:(state.name.trim()||"Someone"), place, when, note, maxPlayers:max?parseInt(max,10):null });
+  };
+}
+
+/* ---- Wire up ---- */
+document.getElementById("brand").onclick=()=>{state.view="home"; render();};
+const nameInput=document.getElementById("nameInput");
+nameInput.addEventListener("input", async (e)=>{
+  state.name=e.target.value;
+  await store.setLocal("name:"+deviceId, e.target.value);
+});
+
+(async function init(){
+  const saved=await store.getLocal("name:"+deviceId);
+  if(saved){ state.name=saved; nameInput.value=saved; }
+  render();
+})();
+</script>
+</body>
+</html>
