@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sportlink</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
   :root{
     --ink:#0d1b14; --lime:#c2ff3d; --field:#10241a;
@@ -79,10 +81,12 @@
     background:linear-gradient(160deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
     border:1px solid rgba(194,255,61,.14);}
   .matchCard.past{opacity:.55;}
-  .matchTop{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .matchTop{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
   .whenChip{background:rgba(194,255,61,.16); color:var(--lime); padding:4px 12px;
     border-radius:999px; font-size:12px; font-weight:700;}
-  .deleteLink{background:none; border:none; color:#e88; font-size:12px; cursor:pointer; text-decoration:underline;}
+  .sportChip{background:rgba(255,255,255,.07); color:var(--soft); padding:4px 12px;
+    border-radius:999px; font-size:12px; font-weight:700;}
+  .deleteLink{background:none; border:none; color:#e88; font-size:12px; cursor:pointer; text-decoration:underline; margin-left:auto;}
   .matchPlace{font-size:19px; font-weight:800; letter-spacing:-.02em;}
   .matchWhen{color:var(--soft); font-size:14px; margin-top:5px;}
   .matchNote{color:var(--muted); font-size:14px; margin-top:8px; font-style:italic;}
@@ -145,35 +149,84 @@ const SPORTS = [
   {id:"hockey",name:"Hockey",emoji:"🏒"},
 ];
 
-/* ---- Storage: server if available, else localStorage fallback ---- */
-const hasServer = typeof window.storage !== "undefined" && window.storage;
+/* ---- Storage: Firebase Realtime Database (shared), localStorage fallback ---- */
+const firebaseConfig = {
+  apiKey: "AIzaSyBOf04F9K5Ys4cfByMKr5oLGQvonLh8vP0",
+  authDomain: "the-glade-be01e.firebaseapp.com",
+  databaseURL: "https://the-glade-be01e-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "the-glade-be01e",
+  storageBucket: "the-glade-be01e.firebasestorage.app",
+  messagingSenderId: "997920995512",
+  appId: "1:997920995512:web:3065e4ff59314626209c4d",
+  measurementId: "G-VMNRR1TSPC"
+};
+
+let db = null;
+try {
+  if (window.firebase && firebaseConfig.databaseURL) {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+  }
+} catch (e) { console.warn("Firebase init failed, using local fallback", e); }
+
+// Matches live under /matches/<key> in Firebase. Keys can't contain "." so we
+// strip the "match:" prefix's colon by storing the part after it.
+function matchKey(fullId){ return fullId.replace(/[.#$/\[\]]/g, "_"); }
+
 const store = {
   async list(prefix){
-    if(hasServer){ try{ const r=await window.storage.list(prefix,true); return (r&&r.keys)||[]; }catch(e){ return []; } }
+    if(db){
+      try{
+        const snap = await db.ref("matches").once("value");
+        const val = snap.val() || {};
+        return Object.keys(val).map(k => "match:" + k);
+      }catch(e){ return []; }
+    }
     return Object.keys(localStorage).filter(k=>k.startsWith(prefix));
   },
   async get(key){
-    if(hasServer){ try{ const r=await window.storage.get(key,true); return r&&r.value; }catch(e){ return null; } }
+    if(db){
+      try{
+        const k = matchKey(key.replace(/^match:/,""));
+        const snap = await db.ref("matches/" + k).once("value");
+        const v = snap.val();
+        return v ? JSON.stringify(v) : null;
+      }catch(e){ return null; }
+    }
     return localStorage.getItem(key);
   },
   async set(key,val){
-    if(hasServer){ try{ await window.storage.set(key,val,true); return true; }catch(e){ return false; } }
+    if(db){
+      try{
+        const k = matchKey(key.replace(/^match:/,""));
+        await db.ref("matches/" + k).set(JSON.parse(val));
+        return true;
+      }catch(e){ return false; }
+    }
     localStorage.setItem(key,val); return true;
   },
   async del(key){
-    if(hasServer){ try{ await window.storage.delete(key,true); return true; }catch(e){ return false; } }
+    if(db){
+      try{
+        const k = matchKey(key.replace(/^match:/,""));
+        await db.ref("matches/" + k).remove();
+        return true;
+      }catch(e){ return false; }
+    }
     localStorage.removeItem(key); return true;
   },
-  // personal (name) — keep per device
-  async getLocal(key){
-    if(hasServer){ try{ const r=await window.storage.get(key,false); return r&&r.value; }catch(e){ return null; } }
-    return localStorage.getItem(key);
-  },
-  async setLocal(key,val){
-    if(hasServer){ try{ await window.storage.set(key,val,false); }catch(e){} }
-    else localStorage.setItem(key,val);
-  }
+  // personal (name) — always kept per device, never shared
+  async getLocal(key){ return localStorage.getItem(key); },
+  async setLocal(key,val){ localStorage.setItem(key,val); }
 };
+
+// Live updates: re-load whenever the shared matches change
+function watchMatches(){
+  if(!db) return;
+  db.ref("matches").on("value", ()=>{
+    if(state.view === "sport" && state.sport){ loadMatchesFor(state.sport.id); }
+  });
+}
 
 /* ---- Identity ---- */
 function getDeviceId(){
@@ -218,7 +271,7 @@ async function loadMatchesFor(sportId){
   const results=[];
   for(const k of keys){
     const v=await store.get(k);
-    if(v){ try{ const m=JSON.parse(v); if(m.sport===sportId) results.push(m); }catch(e){} }
+    if(v){ try{ const m=JSON.parse(v); results.push(m); }catch(e){} }
   }
   results.sort((a,b)=>new Date(a.when)-new Date(b.when));
   state.matches=results; state.loading=false; render();
@@ -281,12 +334,12 @@ function renderSport(){
   const sp=state.sport;
   const countText = state.loading ? "Loading matches…"
     : state.matches.length===0 ? "No matches posted yet"
-    : state.matches.length+" match"+(state.matches.length>1?"es":"")+" posted";
+    : state.matches.length+" match"+(state.matches.length>1?"es":"")+" across all sports";
 
   let cards="";
   if(!state.loading && state.matches.length===0){
     cards = `<div class="empty"><div class="emoji">${sp.emoji}</div>
-      <p>No ${sp.name.toLowerCase()} matches yet. Post one — set the place and time, and others can join right away.</p></div>`;
+      <p>No matches posted yet. Post one — set the place and time, and others can join right away.</p></div>`;
   } else {
     cards = `<div class="matchList">${state.matches.map(m=>matchCard(m)).join("")}</div>`;
   }
@@ -328,10 +381,13 @@ function matchCard(m){
     `<span class="miniAvatar" style="margin-left:${i===0?0:-8}px;z-index:${10-i}" title="${esc(p.name)}">${esc((p.name||"?").charAt(0).toUpperCase())}</span>`).join("");
   const joinClass = joined?"joinBtn joined":(full?"joinBtn full":"joinBtn");
   const joinLabel = joined?"✓ You're going — tap to leave":(full?"Match full":"Join this match");
+  const sp = SPORTS.find(s=>s.id===m.sport);
+  const sportLabel = sp ? `<span class="sportChip">${sp.emoji} ${esc(sp.name)}</span>` : "";
   return `
     <div class="matchCard ${past?"past":""}">
       <div class="matchTop">
         <span class="whenChip">${past?"Past":timeUntil(m.when)}</span>
+        ${sportLabel}
         ${isHost?`<button class="deleteLink" data-del="${m.id}">Delete</button>`:""}
       </div>
       <div class="matchPlace">📍 ${esc(m.place)}</div>
@@ -392,6 +448,7 @@ nameInput.addEventListener("input", async (e)=>{
   const saved=await store.getLocal("name:"+deviceId);
   if(saved){ state.name=saved; nameInput.value=saved; }
   render();
+  watchMatches();
 })();
 </script>
 </body>
